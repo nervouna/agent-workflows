@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Codex Agents"
+  short_description: "Keep user AGENTS concise and skill-backed"
+  default_prompt: "Use $maintain-codex-agents to decide whether this ~/.codex/AGENTS.md change belongs in AGENTS.md or a skill."
