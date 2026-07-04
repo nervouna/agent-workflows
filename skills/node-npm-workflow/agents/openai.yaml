@@ -1,0 +1,4 @@
+interface:
+  display_name: "Node npm Workflow"
+  short_description: "Use mise and npm for Node work"
+  default_prompt: "Use $node-npm-workflow to inspect this Node project and choose the right npm workflow."

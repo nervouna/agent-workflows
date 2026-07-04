@@ -1,0 +1,4 @@
+interface:
+  display_name: "MCP Secrets and Local Config"
+  short_description: "Handle MCP keys and local env safely"
+  default_prompt: "Use $mcp-secrets-and-local-config to set up this MCP server key without exposing secrets."

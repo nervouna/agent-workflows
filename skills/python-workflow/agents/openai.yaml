@@ -1,0 +1,4 @@
+interface:
+  display_name: "Python Workflow"
+  short_description: "Use mise and uv for Python work"
+  default_prompt: "Use $python-workflow to inspect this Python project and choose the right mise plus uv workflow."
