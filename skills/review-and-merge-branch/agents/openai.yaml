@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review and Merge Branch"
+  short_description: "Gate, repair, and safely merge a branch"
+  default_prompt: "Use $review-and-merge-branch to review the current branch against main, fix every P0/P1 blocker, and merge locally after a fresh GO, using a reviewed merge commit only when branches with common history have diverged."
