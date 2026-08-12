@@ -1,0 +1,4 @@
+interface:
+  display_name: "Apple Signing Workflow"
+  short_description: "Verify Xcode signing identities and artifacts"
+  default_prompt: "Use $apple-signing-workflow to build and verify this Apple app with the correct signing team."
