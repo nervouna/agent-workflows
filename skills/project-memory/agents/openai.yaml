@@ -1,0 +1,7 @@
+interface:
+  display_name: "Project Memory"
+  short_description: "Carry durable project context across machines"
+  default_prompt: "Use $project-memory to load this project's durable decisions and constraints."
+
+policy:
+  allow_implicit_invocation: true
