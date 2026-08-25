@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keep calm and YOLO on"
+  short_description: "Plan and gate complex feature development"
+  default_prompt: "Use $keep-calm-and-yolo-on to clarify, design, plan, implement, review, and locally commit this complex feature."
