@@ -1,6 +1,8 @@
 ---
 name: maintain-codex-agents
 description: Use when editing ~/.codex/AGENTS.md from the codex-maintenance repository, deciding whether user-level Codex guidance belongs in AGENTS.md or a reusable skill, compressing global instructions, or deploying repository-managed personal skills into ~/.agents/skills.
+metadata:
+  internal: true
 ---
 
 # Maintain Codex Agents
