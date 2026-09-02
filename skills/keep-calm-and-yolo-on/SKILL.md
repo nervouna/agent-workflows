@@ -25,8 +25,9 @@ none authorizes implementation or commits.
 Use three routine user approval gates: requirements, architecture, and executable plan.
 Combine architecture and plan only when no material architecture choice remains or the
 user requests fewer checkpoints. Resolve facts from the repository before asking; ask one
-material decision at a time using the host's available interaction mechanism. Decide and
-record low-risk reversible choices; honor delegated choices without asking again.
+material decision at a time using the host's available interaction mechanism. When structured
+input is available, include a recommendation and concise tradeoffs. Decide and record
+low-risk reversible choices; honor delegated choices without asking again.
 
 Execution requires authorization for both implementation and local task commits.
 Resolve missing commit authority before approving an execution plan; if declined, do not
@@ -44,21 +45,56 @@ confirm implementation and independent-review subagents and safe local commits a
 otherwise report the capability or authority blocker.
 
 1. Requirements: confirm objective, observable acceptance and evidence, scope/non-goals,
-   constraints, compatibility/migrations, and assumptions. Resolve all material questions
-   before approval. Obtain the user's confirmation before architecture design, including
-   design-only requests. No production edits yet.
+   constraints, compatibility/migrations, and assumptions. Ask only when the answer could
+   materially change one or more of: observable behavior or acceptance; scope, non-goals, or
+   compatibility; architecture, persisted data, public interfaces, or migration; privacy, trust
+   boundaries, paid calls, or irreversible effects; performance, platform support, or
+   failure/recovery. Present a requirements contract whose unresolved material questions are
+   empty. Obtain the user's confirmation before architecture design, including design-only
+   requests. No production edits yet.
 2. Architecture: design from existing code. Include material alternatives, boundaries and
    interfaces, data/control flow, and relevant persistence, concurrency, error/recovery,
    compatibility, and verification. Exclude unrelated hardening and generic production
    readiness work. Confirm and freeze the design.
-3. Plan: create one Markdown plan in a dedicated temporary directory; report its absolute
-   path. For cross-session resumption, use a verified ignored repository-local directory.
-   Record accepted requirements/architecture, implementation and commit authority,
-   dependency-ordered cohesive tasks, each task's goal, modules, core changes, checks,
-   commit boundary, status/hash, and final checks plus aggregate review scope.
+3. Plan: create one Markdown plan, preferably with `mktemp -d`; report its absolute path.
+   For cross-session resumption, use a verified ignored repository-local directory.
    Combine tasks when intermediate commits would be invalid. No estimates, staffing,
    generic risk registers, or release ceremony unless requested. Obtain approval before
    implementation; update statuses, hashes, and evidence as work proceeds.
+
+```markdown
+# <Feature> Implementation Plan
+
+## Accepted requirements
+<Confirmed requirements contract>
+
+## Accepted architecture
+<Confirmed design and boundaries>
+
+## Delivery boundary
+- Implementation: <authorized | not authorized | not requested>
+- Local task commits: <authorized | not authorized | not requested>
+
+## Verification strategy
+<Focused checks per task plus final integration or end-to-end evidence>
+
+## Task graph
+
+### T1: <High-cohesion task name>
+- Goal:
+- Dependencies:
+- Affected modules:
+- Core implementation:
+- Tests and acceptance evidence:
+- Commit boundary:
+- Status: pending
+- Commit: pending
+
+## Final feature gate
+- Required repository checks:
+- Integration or end-to-end acceptance:
+- Aggregate review scope:
+```
 
 ## Serial task loop
 
@@ -84,10 +120,10 @@ For each dependency-ready task:
    unverifiable, failed-tool, or state-mutating review is invalid, not GO and not a round.
    On reviewer mutation, preserve changes and stop for inspection; never auto-delete them.
 5. For a valid NO-GO, reproduce blockers, send confirmed ones to a repair subagent
-   (normally the implementer), and make the smallest complete fix. Reject unsupported
-   assertions. Re-run checks and review the entire current task diff. Reuse the reviewer
-   for continuity unless scope changed materially, a finding is disputed, or state is
-   unreliable, in which case use a fresh reviewer.
+   (normally the implementer), and make the smallest complete fix plus focused regression
+   evidence. Reject unsupported assertions. Re-run checks and review the entire current
+   task diff. Reuse the reviewer for continuity unless scope changed materially, a finding
+   is disputed, or state is unreliable, in which case use a fresh reviewer.
 6. Only the primary agent may commit, after valid GO, all required checks pass, no known
    P0/P1 remains, and staging contains task-owned changes only. Use repository conventions,
    record completed status/hash/evidence, and continue.
@@ -106,8 +142,9 @@ GO requires no P0/P1 or other blocking evidence and all required checks passing;
 not promise absence of undiscovered defects.
 
 After the third valid full review still finds substantiated P0/P1, stop without committing
-that task. Preserve current work and earlier commits; report blockers, checks and plan status
-and ask the user how to proceed. Never dilute severity or checkpoint-commit to force convergence.
+that task. Preserve current work and earlier commits; report blockers, checks and plan status.
+Ask whether to revise the design, split the task, continue manually, or stop.
+Never dilute severity or checkpoint-commit to force convergence.
 
 ## Final gate and changed scope
 
