@@ -1,8 +1,8 @@
-# Codex Maintenance Workspace
+# Agent Workflows Workspace
 
 ## Scope
 
-- This repository stores Codex maintenance tools, tests, runbooks, and templates.
+- This repository stores reusable agent skills and Codex maintenance tools, tests, runbooks, and templates.
 - Do not mirror runtime state from `~/.codex`.
 - Treat `~/.codex` as an external target that tools inspect or update deliberately.
 

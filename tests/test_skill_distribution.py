@@ -51,6 +51,16 @@ def test_maintenance_skill_is_internal() -> None:
     assert data.get("metadata", {}).get("internal") is True
 
 
+def test_catalog_covers_public_skills_with_valid_links() -> None:
+    catalog = ROOT / "skills/README.md"
+    links = re.findall(r"\[([^\]]+)\]\(([^)]+/SKILL\.md)\)", catalog.read_text(encoding="utf-8"))
+    assert len(links) == len(PUBLIC_SKILLS)
+    assert {name for name, _ in links} == PUBLIC_SKILLS
+    for name, target in links:
+        assert (catalog.parent / target).resolve() == (ROOT / "skills" / name / "SKILL.md")
+        assert (catalog.parent / target).is_file()
+
+
 @pytest.mark.parametrize("name", sorted(PUBLIC_SKILLS))
 def test_skill_payload_is_self_contained(name: str) -> None:
     directory = ROOT / "skills" / name
