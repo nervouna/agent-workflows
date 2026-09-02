@@ -6,22 +6,13 @@
 
 ## 安装技能
 
-需要 Node.js、npm（包含 `npx`）和 Git，并满足所用 `skills` 版本的 Node 要求。以下远端命令以仓库已发布为公开的 `nervouna/agent-workflows` 为前提：
+以下示例为当前用户的 Codex 安装一个技能，以仓库已发布为公开的 `nervouna/agent-workflows` 为前提：
 
 ```sh
-# 查看可安装技能
-npx skills add nervouna/agent-workflows --list
-
-# 为当前用户的 Codex 安装一个技能
 npx skills add nervouna/agent-workflows --skill app-icon-design -a codex -g
-
-# 安装全部公开技能
-npx skills add nervouna/agent-workflows --skill '*' -a codex -g
 ```
 
-全局安装的 Codex 技能位于 `~/.agents/skills/`；去掉 `-g`，则安装到执行命令所在项目的 `.agents/skills/`。安装前检查同名技能，避免覆盖自己的修改。
-
-技能提供操作指引，不会自动安装 Xcode、Python、mise、MCP 服务或其他工具，也不会为 agent 增加子代理、图片生成或 GUI 操作能力。安装本仓库的技能不需要安装 Python 维护工具及其开发依赖。
+完整选项、环境前提、项目与全局安装路径、同名覆盖提醒，以及内部技能的发现边界，统一见[技能目录与安装说明](skills/README.md)。
 
 ## Codex 维护工具
 
@@ -41,8 +32,6 @@ uv run ruff format --check .
 uv run ruff check .
 ```
 
-## 许可证与公开边界
+## 许可证
 
 整个仓库采用 [MIT 许可证](LICENSE)，每个公开技能也附带相同的许可文本。
-
-`.agents/skills/maintain-codex-agents` 是仓库自身的维护技能，使用 `metadata.internal: true` 从默认技能列表中过滤。这不是访问控制：源码随仓库公开，显式请求或开启内部技能发现仍可能安装它。
