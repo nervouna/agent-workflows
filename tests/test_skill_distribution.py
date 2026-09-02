@@ -79,13 +79,48 @@ def test_skill_payload_is_self_contained(name: str) -> None:
             assert resource.is_relative_to(directory.resolve()) and resource.is_file()
 
 
-def test_mit_license_is_complete_and_bundled() -> None:
-    license_text = (ROOT / "LICENSE").read_bytes()
-    # Pin the canonical MIT text from https://opensource.org/license/mit with
-    # the accepted copyright line, not just a title shared by truncated copies.
+def assert_mit_licenses(root: Path) -> None:
+    license_text = (root / "LICENSE").read_bytes()
+    # Pin all words of the canonical MIT text from https://opensource.org/license/mit
+    # and the accepted copyright line, while allowing whitespace-only formatting.
     assert (
-        hashlib.sha256(license_text).hexdigest()
-        == "c0b2a70945905de48f929d25c85b9ac047d2b40cd6be94aac82e9f70e4ad60fc"
+        hashlib.sha256(b" ".join(license_text.split())).hexdigest()
+        == "766dc6c993b160af476f70bb12bb4c7206130cee91a4291ad1fe6167fd44cb96"
     )
     for name in PUBLIC_SKILLS:
-        assert (ROOT / "skills" / name / "LICENSE").read_bytes() == license_text
+        assert (root / "skills" / name / "LICENSE").read_bytes() == license_text
+
+
+def test_mit_license_is_complete_and_bundled() -> None:
+    assert_mit_licenses(ROOT)
+
+
+@pytest.mark.parametrize("change", ["whitespace", "truncated", "changed-word", "mismatched-copy"])
+def test_license_validation_rejects_content_loss_not_formatting(
+    tmp_path: Path, change: str
+) -> None:
+    original = (ROOT / "LICENSE").read_bytes()
+    if change == "whitespace":
+        modified = original.replace(b"\n", b"\r\n\r\n")
+    elif change == "truncated":
+        modified = b"\n".join(original.splitlines()[:3]) + b"\n"
+    elif change == "changed-word":
+        modified = original.replace(b"free of charge", b"for a fee")
+    else:
+        modified = original + b"\n"
+    assert modified != original
+
+    # Mutate all copies together except when testing a single divergent payload.
+    root_text = original if change == "mismatched-copy" else modified
+    (tmp_path / "LICENSE").write_bytes(root_text)
+    for name in PUBLIC_SKILLS:
+        directory = tmp_path / "skills" / name
+        directory.mkdir(parents=True)
+        text = modified if change == "mismatched-copy" and name == "app-icon-design" else root_text
+        (directory / "LICENSE").write_bytes(text)
+
+    if change == "whitespace":
+        assert_mit_licenses(tmp_path)
+    else:
+        with pytest.raises(AssertionError):
+            assert_mit_licenses(tmp_path)
