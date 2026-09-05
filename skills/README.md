@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | [app-icon-design](app-icon-design/SKILL.md) | 探索、制作和集成应用图标 | 图片生成能力或现有素材；Apple 图标流程需要 macOS、Xcode / Icon Composer，自动操作还需要 GUI 能力，否则手动操作 |
 | [apple-signing-workflow](apple-signing-workflow/SKILL.md) | 检查 Apple 构建、签名、描述文件及成品身份 | macOS、对应 Xcode 工具；实际签名需要用户自己的账号、证书和适用描述文件，团队从项目和用户要求确定 |
-| [keep-calm-and-yolo-on](keep-calm-and-yolo-on/SKILL.md) | 从需求确认推进到实现、独立审查和分批本地提交 | 可用的实现与独立审查子代理、Git 和项目测试工具；安装技能不会新增子代理能力 |
+| [keep-calm-and-yolo-on](keep-calm-and-yolo-on/SKILL.md) | 明确当前交付和停止条件，按范围选择轻量路径或复杂功能实施流程 | 复杂实施需实现与独立审查子代理、Git 和适用测试工具；目录骨架无需完整流程，安装技能不会新增子代理能力 |
 | [mcp-secrets-and-local-config](mcp-secrets-and-local-config/SKILL.md) | 安全配置 MCP、环境文件与本地凭据 | 目标服务及其凭据；使用 1Password 流程时另需 `op`，本技能不提供任何密钥 |
 | [node-npm-workflow](node-npm-workflow/SKILL.md) | 统一 Node/npm 工具链与验证方式 | 面向 macOS、mise 管理 Node、npm 的环境；尊重项目已有包管理器配置 |
 | [project-memory](project-memory/SKILL.md) | 维护可随仓库流转的长期项目约束与决策 | 可读写项目文件的 agent；新建或维护记忆须有用户或项目规则授权 |

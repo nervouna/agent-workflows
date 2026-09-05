@@ -1,4 +1,4 @@
 interface:
   display_name: "Keep calm and YOLO on"
-  short_description: "Plan and gate complex feature development"
-  default_prompt: "Use $keep-calm-and-yolo-on to clarify, design, plan, implement, review, and locally commit this complex feature."
+  short_description: "Scope and deliver complex features proportionately"
+  default_prompt: "Use $keep-calm-and-yolo-on for this request. Establish the current deliverable and stopping condition, then apply only the planning, implementation, review, and authorized local commits it needs."
