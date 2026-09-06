@@ -11,12 +11,15 @@ metadata:
 
 Keep `~/.codex/AGENTS.md` as a compact always-on instruction index. Put durable global rules there only when they must affect nearly every Codex task; move task-specific workflows into skills.
 
+Keep public skills self-contained. Remove redundant general advice without dropping essential standalone constraints or making public skills depend on private user-level instruction files.
+
 ## Initial Inspection
 
 1. Read `~/.codex/AGENTS.md` and find any existing content for the requested topic.
 2. Run `wc -w ~/.codex/AGENTS.md`.
 3. Inspect `git -C ~/.codex status --short` and `git -C ~/.codex diff -- AGENTS.md`; ignore unrelated `~/.codex` changes unless the task requires them.
 4. Search this repository's `skills/` and `.agents/skills/` for an existing skill that already owns the topic.
+5. For instruction audits, read relevant skills' descriptions, bodies and `agents/openai.yaml` defaults. Compare scope, authorization, output and stopping rules with applicable AGENTS instructions and available runtime capabilities. Inspect all custom skills only when requested or when evidence warrants it.
 
 ## Decision Gates
 
@@ -61,5 +64,6 @@ Run the relevant checks before declaring completion:
 - `wc -w ~/.codex/AGENTS.md`
 - `git diff --check`, and `git diff --cached --check` when changes are staged
 - `git status --short --untracked-files=all`
+- For changed routing, authorization, output or stopping rules, review representative task scenarios. Cover relevant boundaries such as advice-only requests, existing authorization, structured reviewer output or recurring blockers. Distinguish static analysis from executed workflows; metadata validation and word counts alone do not prove correct behavior.
 
 For commits in this repository, keep staged changes scoped and run the required pre-commit review gate.
