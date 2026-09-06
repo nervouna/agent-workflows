@@ -18,7 +18,7 @@ Handle local configuration without exposing credentials. Prefer scoped environme
 ## Workflow
 
 1. Identify required variable names from primary docs or existing config without displaying values.
-2. Ensure the destination is gitignored before creating or editing any secret-bearing file.
+2. Before creating or editing a secret-bearing file, determine whether its destination is inside a Git repository. If so, require the file to be untracked and ignored.
 3. For Codex MCP server keys, store values in `~/.codex/secrets/<server>.env` and point config to a local wrapper.
 4. Use `op read`, `op run`, or equivalent 1Password flows when available; do not echo retrieved values.
 5. For project-local config, use `.env` and commit only templates such as `.env.example` with variable names and non-secret placeholders.
@@ -27,7 +27,7 @@ Handle local configuration without exposing credentials. Prefer scoped environme
 ## Config Boundaries
 
 - Use tracked config for command shape, wrapper paths, and non-secret defaults only.
-- Keep raw secrets in gitignored local files or password-manager-backed commands.
+- Keep raw secrets in files outside Git repositories, untracked and ignored files within them, or password-manager-backed commands.
 - Avoid broad launchd or shell-profile exports unless the user explicitly chooses that tradeoff.
 - Treat `~/.codex` as an external target unless working directly in that config repository.
 
@@ -35,6 +35,6 @@ Handle local configuration without exposing credentials. Prefer scoped environme
 
 Before declaring setup complete, confirm:
 
-- secret file paths are ignored or outside tracked repos
+- secret files are outside Git repositories, or untracked and ignored within them
 - tracked diffs contain no secrets, tokens, local account identifiers, or raw env dumps
 - the configured command can start or validate without printing secret values
