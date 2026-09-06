@@ -92,9 +92,10 @@ For each dependency-ready task:
 2. Inspect the full scoped diff, reject unrelated churn, and run focused plus required
    checks. Use a failing regression test first for non-trivial automatable behavior when
    practical; otherwise establish reproducible acceptance before implementation.
-3. Self-review, then use a different read-only reviewer. Provide raw baseline/current
-   identities, current user request, accepted deliverable depth and non-goals, task contract,
-   full scoped diff, surrounding code and check evidence,
+3. Self-review, then spawn a different read-only reviewer. Start each new reviewer without
+   inherited conversation context (`fork_turns: "none"` when available). Provide raw
+   baseline/current identities, current user request, accepted deliverable depth and non-goals,
+   task contract, full scoped diff, surrounding code and check evidence,
    not the implementer's conclusions or an intended verdict.
 4. Require GO/NO-GO and substantiate every P0/P1. Verify reviewed scope and evidence,
    and unchanged source, index, refs and expected diff. A stale, malformed, incomplete,
@@ -129,15 +130,19 @@ security/dependency/compliance/performance programs. Each P0/P1 needs a stable I
 GO requires no P0/P1 or other blocking evidence and all required checks passing; it does
 not promise absence of undiscovered defects.
 
-After the third valid full review still finds substantiated P0/P1, stop without committing
-that task. Preserve current work and earlier commits; report blockers, checks and plan status
-and ask the user how to proceed. Never dilute severity or checkpoint-commit to force convergence.
+After the third valid full review still finds substantiated P0/P1, reassess scope, root causes
+and repair progress. Continue when there is a concrete, evidence-supported next step within
+the accepted scope and authority; review count alone does not require user confirmation.
+If no safe next step remains or a material scope, risk, authority or result decision is
+unresolved, pause the affected work, report blockers, checks and plan status, and ask for
+the missing input or decision. Preserve current work and earlier commits. Never commit
+blocked work, dilute severity or checkpoint-commit to force convergence.
 
 If work grows disproportionate to the deliverable, a blocker recurs, or the user reports drift,
 recheck scope immediately before more implementation or review. Preserve existing work;
 do not delete it without authority. Track recurring blockers across task and aggregate review:
-renaming a task or starting aggregate remediation does not reset the three-round limit for
-the same unresolved blocker. Do not continue "final cleanup" after a scope correction.
+renaming a task or starting aggregate remediation must not erase repair history or bypass
+reassessment. Do not continue "final cleanup" after a scope correction.
 
 ## Final gate and changed scope
 
@@ -149,7 +154,7 @@ from feature baseline to current HEAD (including the verified uncommitted diff w
 never reuse a task reviewer. Supply the current user request, accepted deliverable depth,
 non-goals, contracts, plan, raw diff and actual evidence. Aggregate P0/P1 requires a new remediation
 task through the same loop, then another newly spawned clean-context aggregate reviewer.
-Apply the recurring-blocker limit above across these rounds.
+Apply the same reassessment and blocking criteria across these rounds.
 
 Stop when the current deliverable, applicable acceptance checks, and required review pass.
 Do not start the next product phase, add speculative build hardening, or commission further
