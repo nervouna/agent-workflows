@@ -26,7 +26,7 @@ Use `mise` for Node runtime selection and interactive shell integration. Use `np
 
 - In a real interactive zsh TTY, `node`, `npm`, and `npx` should resolve through the active mise Node.
 - Non-interactive shells may differ; do not treat them as sole truth for this machine.
-- When path behavior matters, verify with `mise current`, `mise which node`, `npm config list -l`, or an interactive `zsh -li` check.
+- When path behavior matters, verify with `mise current`, `mise which node`, `command -v node npm npx`, or an interactive `zsh -li` check.
 
 ## Development Defaults
 
