@@ -167,7 +167,11 @@ For `fast-forward`, require `REVIEW_WORKTREE` to remain attached to the candidat
 
 For `merge-commit`, require the same detached provisional merge to remain active in the pinned integration worktree with `HEAD=BASE_SHA`, `MERGE_HEAD=CANDIDATE_SHA`, no unmerged paths, and the reviewed prospective tree. Run every required check and configured commit gate with `git -C INTEGRATION_WORKTREE` or the repository's equivalent worktree-scoped command against that exact merge result, then immediately re-pin the refs, upstream snapshot, full worktree identity, topology, detached `HEAD`, `MERGE_HEAD`, status, ignored collisions, and index tree.
 
-Create the merge commit with normal repository hooks using `git -C INTEGRATION_WORKTREE commit --no-edit` while still detached, so the base ref remains untouched. If commit creation fails, use the restoration procedure and stop as `BLOCKED`. Before advancing the base, require the detached commit to have exactly two parents in order, `BASE_SHA` then `CANDIDATE_SHA`, and the reviewed prospective tree as its tree. Run every required check again against this actual detached merge commit, including checks that inspect `HEAD`, parents, ancestry, or version metadata; bind each result to `MERGE_COMMIT_SHA` and the reviewed tree. Then re-verify both branch refs and the upstream snapshot, every commit identity, clean status, and that no worktree is attached to `BASE_FULL_REF`. If any check fails, do not move the base ref; use the restoration procedure and stop as `BLOCKED`.
+Create the merge commit with normal repository hooks using `git -C INTEGRATION_WORKTREE commit --no-edit` while still detached, so the base ref remains untouched. If commit creation fails, use the restoration procedure and stop as `BLOCKED`. Before advancing the base, require the detached commit to have exactly two parents in order, `BASE_SHA` then `CANDIDATE_SHA`, and the reviewed prospective tree as its tree.
+
+Against this actual detached merge commit, rerun checks that depend on `HEAD`, parents, ancestry, version metadata, hooks, generated artifacts or external state, and any checks the repository requires after commit creation. Reuse only passed source-only results from the immediately preceding final-gate checks, with the same worktree, reviewed tree, command and verified unchanged toolchain, dependencies, configuration and other relevant inputs; rerun if equivalence is uncertain. Preserve reused results' original `tested_sha`, `tested_tree_sha`, worktree and observed outcome, and separately explain their applicability to `MERGE_COMMIT_SHA`; never label them as fresh runs. Bind newly executed checks to `MERGE_COMMIT_SHA` and the reviewed tree.
+
+Then re-verify both branch refs and the upstream snapshot, every commit identity, clean status, and that no worktree is attached to `BASE_FULL_REF`. If any required check fails or lacks applicable passing evidence, do not move the base ref; use the restoration procedure and stop as `BLOCKED`.
 
 Immediately recheck those identities, then use one `git -C INTEGRATION_WORKTREE update-ref --stdin` transaction to verify `CANDIDATE_FULL_REF=CANDIDATE_SHA` and the upstream ref/SHA when present while updating `BASE_FULL_REF` from exactly `BASE_SHA` to `MERGE_COMMIT_SHA`. The base update's expected-old value is its compare-and-swap guard. This is a guarded fast-forward to a verified descendant, never a force update. If the transaction fails, do not retry with a force; use the restoration procedure and start a fresh review only if restoration proves the original state.
 
@@ -183,7 +187,7 @@ Report:
 - base and candidate refs plus reviewed SHAs
 - review round count
 - every P0/P1 found and how it was resolved, with invalid findings identified separately
-- checks run and their statuses
+- checks run and their statuses, distinguishing fresh runs from reused results with their original execution identities and reuse rationale
 - integration mode, local merge result, and resulting base SHA
 - merge commit SHA, parents, and tree when merge-commit mode was used
 - integration worktree path and restoration status
