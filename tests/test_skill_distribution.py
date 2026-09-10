@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_SKILLS = {
     "app-icon-design",
     "apple-signing-workflow",
+    "insights",
     "keep-calm-and-yolo-on",
     "mcp-secrets-and-local-config",
     "node-npm-workflow",
@@ -51,6 +52,21 @@ def test_maintenance_skill_is_internal() -> None:
     assert data.get("metadata", {}).get("internal") is True
 
 
+def test_insights_requires_explicit_invocation() -> None:
+    ui = yaml.safe_load((ROOT / "skills/insights/agents/openai.yaml").read_text(encoding="utf-8"))
+    assert ui.get("policy", {}).get("allow_implicit_invocation") is False
+
+
+def test_insights_documents_portable_runtime_requirements() -> None:
+    skill = (ROOT / "skills/insights/SKILL.md").read_text(encoding="utf-8")
+    catalog = (ROOT / "skills/README.md").read_text(encoding="utf-8")
+    for text in (skill, catalog):
+        assert "macOS" in text
+        assert "Python 3.11" in text
+        assert "thread/turns/list" in text
+        assert "thread/items/list" in text
+
+
 def test_catalog_covers_public_skills_with_valid_links() -> None:
     catalog = ROOT / "skills/README.md"
     links = re.findall(r"\[([^\]]+)\]\(([^)]+/SKILL\.md)\)", catalog.read_text(encoding="utf-8"))
@@ -59,6 +75,17 @@ def test_catalog_covers_public_skills_with_valid_links() -> None:
     for name, target in links:
         assert (catalog.parent / target).resolve() == (ROOT / "skills" / name / "SKILL.md")
         assert (catalog.parent / target).is_file()
+
+
+def test_distribution_runbook_covers_every_public_skill_and_insights_smoke() -> None:
+    runbook = (ROOT / "docs/runbooks/skill-distribution.md").read_text(encoding="utf-8")
+    names = re.search(r"public_names='([^']+)'", runbook, re.DOTALL)
+    assert names is not None
+    assert set(names.group(1).split()) == PUBLIC_SKILLS
+    assert "exactly the nine names" in runbook
+    assert "--skill insights -a codex --yes" in runbook
+    assert 'test "$(installed_names "$single_target")" = insights' in runbook
+    assert 'diff -r "$skill_source/skills/insights"' in runbook
 
 
 @pytest.mark.parametrize("name", sorted(PUBLIC_SKILLS))

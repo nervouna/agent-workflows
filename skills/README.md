@@ -1,11 +1,12 @@
 # 技能目录
 
-以下八个技能是本仓库的公开安装面。它们是工作流指引，不是运行时或工具的安装包；安装前应阅读对应 `SKILL.md`，确认权限和环境适用。
+以下九个技能是本仓库的公开安装面。它们是工作流指引，不是运行时或工具的安装包；安装前应阅读对应 `SKILL.md`，确认权限和环境适用。
 
 | 技能 | 用途 | 使用前提 |
 | --- | --- | --- |
 | [app-icon-design](app-icon-design/SKILL.md) | 探索、制作和集成应用图标 | 图片生成能力或现有素材；Apple 图标流程需要 macOS、Xcode / Icon Composer，自动操作还需要 GUI 能力，否则手动操作 |
 | [apple-signing-workflow](apple-signing-workflow/SKILL.md) | 检查 Apple 构建、签名、描述文件及成品身份 | macOS、对应 Xcode 工具；实际签名需要用户自己的账号、证书和适用描述文件，团队从项目和用户要求确定 |
+| [insights](insights/SKILL.md) | 结合固定指标和模型阅读，复盘近期 Codex 协作 | macOS、Python 3.11+、本地 `codex`，且 App Server 支持 `thread/turns/list` 与 `thread/items/list`；手动显式调用，不自动安装依赖 |
 | [keep-calm-and-yolo-on](keep-calm-and-yolo-on/SKILL.md) | 明确当前交付和停止条件，按范围选择轻量路径或复杂功能实施流程 | 复杂实施需实现与独立审查子代理、Git 和适用测试工具；目录骨架无需完整流程，安装技能不会新增子代理能力 |
 | [mcp-secrets-and-local-config](mcp-secrets-and-local-config/SKILL.md) | 安全配置 MCP、环境文件与本地凭据 | 目标服务及其凭据；使用 1Password 流程时另需 `op`，本技能不提供任何密钥 |
 | [node-npm-workflow](node-npm-workflow/SKILL.md) | 统一 Node/npm 工具链与验证方式 | 面向 macOS、mise 管理 Node、npm 的环境；尊重项目已有包管理器配置 |

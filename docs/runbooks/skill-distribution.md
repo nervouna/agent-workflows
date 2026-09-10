@@ -67,7 +67,7 @@ smoke_env env INSTALL_INTERNAL_SKILLS=1 \
   npx --yes "skills@$skills_version" add "$skill_source" --list
 
 (cd "$single_target" && smoke_env npx --yes "skills@$skills_version" \
-  add "$skill_source" --skill app-icon-design -a codex --yes)
+  add "$skill_source" --skill insights -a codex --yes)
 (cd "$all_target" && smoke_env npx --yes "skills@$skills_version" \
   add "$skill_source" --skill '*' -a codex --yes)
 ```
@@ -76,7 +76,7 @@ Record the version, commands, exit statuses and temporary paths in local evidenc
 snapshots. After the initial download,
 `npx --offline --yes "skills@$skills_version" ...` can reuse the isolated cache.
 
-Default discovery must list exactly the eight names below. With `INSTALL_INTERNAL_SKILLS=1`, it
+Default discovery must list exactly the nine names below. With `INSTALL_INTERNAL_SKILLS=1`, it
 must additionally list `maintain-codex-agents`. Internal metadata is only a default filter: an
 explicit named request can also select the internal skill without the override. It is not access
 control and the source will remain publicly readable.
@@ -86,17 +86,17 @@ reject links, and compare all files including `LICENSE`, `SKILL.md`, `agents/ope
 supporting resources. Every command below must succeed:
 
 ```sh
-public_names='app-icon-design apple-signing-workflow keep-calm-and-yolo-on
+public_names='app-icon-design apple-signing-workflow insights keep-calm-and-yolo-on
 mcp-secrets-and-local-config node-npm-workflow project-memory python-workflow
 review-and-merge-branch'
 installed_names() {
   find "$1/.agents/skills" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort
 }
-test "$(installed_names "$single_target")" = app-icon-design
+test "$(installed_names "$single_target")" = insights
 test "$(installed_names "$all_target")" = "$(printf '%s\n' $public_names | sort)"
 test -z "$(find "$single_target/.agents" "$all_target/.agents" -type l -print)"
-diff -r "$skill_source/skills/app-icon-design" \
-  "$single_target/.agents/skills/app-icon-design"
+diff -r "$skill_source/skills/insights" \
+  "$single_target/.agents/skills/insights"
 for skill_name in $public_names; do
   diff -r "$skill_source/skills/$skill_name" "$all_target/.agents/skills/$skill_name"
 done

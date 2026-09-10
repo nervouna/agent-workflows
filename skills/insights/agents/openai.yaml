@@ -1,0 +1,6 @@
+interface:
+  display_name: "Insights"
+  short_description: "Review recent Codex collaboration with evidence"
+  default_prompt: "Use $insights to create a private retrospective of my recent Codex collaboration."
+policy:
+  allow_implicit_invocation: false
