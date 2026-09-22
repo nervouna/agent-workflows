@@ -1,4 +1,4 @@
 interface:
   display_name: "Python Workflow"
-  short_description: "Use mise and uv for Python work"
-  default_prompt: "Use $python-workflow to inspect this Python project and choose the right mise plus uv workflow."
+  short_description: "Use Homebrew Python and uv for native work"
+  default_prompt: "Use $python-workflow to inspect this Python project and choose the right native Homebrew and uv workflow."
