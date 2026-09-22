@@ -35,10 +35,10 @@ Extract or update a skill when the topic:
 - exceeds about 60-80 words in `AGENTS.md`
 - needs three or more steps, commands, exceptions, or examples
 - applies only to a specific toolchain, product area, security setup, or maintenance workflow
-- would push `AGENTS.md` above about 400 words
+- would push `AGENTS.md` above 500 words
 - is useful enough to reuse, but not universal enough to load every turn
 
-Treat `<= 350` words as healthy, `351-399` as warning range, and `>= 400` as a hard prompt to compress or extract unless the new content is a global hard rule.
+Keep `AGENTS.md` at or below 500 words, measured with `wc -w`. If it exceeds this limit, compress wording or extract task-specific workflows while preserving all global rules and their meaning.
 
 ## Skill Placement
 
