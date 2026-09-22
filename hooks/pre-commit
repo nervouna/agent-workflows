@@ -1,10 +1,17 @@
 #!/bin/sh
 set -eu
 
-if ! command -v gitleaks >/dev/null 2>&1; then
+repo_root=$(git rev-parse --show-toplevel)
+gitleaks_bin="$repo_root/.tools/gitleaks/gitleaks"
+
+if [ ! -x "$gitleaks_bin" ]; then
+  gitleaks_bin=$(command -v gitleaks || true)
+fi
+
+if [ -z "$gitleaks_bin" ]; then
   echo "gitleaks is required for commits in codex-maintenance." >&2
-  echo "Install it with: brew install gitleaks" >&2
+  echo "Install it at .tools/gitleaks/gitleaks or make it available on PATH." >&2
   exit 1
 fi
 
-gitleaks protect --staged --redact
+"$gitleaks_bin" protect --staged --redact
