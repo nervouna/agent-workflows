@@ -51,6 +51,8 @@ def main(argv: list[str] | None = None) -> int:
     bind.add_argument("--turn-id")
     returned = workflow_commands.add_parser("returned")
     returned.add_argument("attempt_id")
+    interrupted = workflow_commands.add_parser("interrupt")
+    interrupted.add_argument("attempt_id")
     submit = workflow_commands.add_parser("submit")
     submit.add_argument("task_id")
     submit.add_argument("report", type=Path)
@@ -128,6 +130,8 @@ def _run_workflow(args: argparse.Namespace) -> int:
         store.bind_attempt(args.attempt_id, args.agent_id, args.turn_id)
     elif action == "returned":
         store.mark_returned(args.attempt_id)
+    elif action == "interrupt":
+        store.interrupt_attempt(args.attempt_id)
     elif action == "submit":
         result = store.submit_report_file(args.task_id, args.report)
     elif action == "accept":

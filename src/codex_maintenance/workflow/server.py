@@ -92,6 +92,7 @@ def _public_snapshot(snapshot: dict[str, object], plugin_data: Path | None) -> d
                     {
                         "number": a["number"],
                         "returned": a["returned"],
+                        "interrupted": a["interrupted"],
                         "observed_start": a["observed_start"],
                         "observed_stop": a["observed_stop"],
                     }

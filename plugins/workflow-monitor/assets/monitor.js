@@ -10,7 +10,7 @@ function node(tag, text, className) {
 function render(data) {
   const tasks = data.tasks || [];
   const accepted = tasks.filter(t => t.state === 'accepted' && t.acceptance_valid).length;
-  const returned = tasks.filter(t => t.attempts.some(a => a.returned)).length;
+  const returned = tasks.filter(t => t.attempts.at(-1)?.returned).length;
   el('summary').textContent = `${data.state === 'finished' ? '已完成' : '进行中'} · 已返回 ${returned}/${tasks.length} · 已验收 ${accepted}/${tasks.length}`;
   const stages = el('stages'); stages.replaceChildren();
   const current = data.stages.indexOf(data.stage);
@@ -18,7 +18,7 @@ function render(data) {
     const relevant = tasks.filter(t => t.stage === name && t.state !== 'revision_requested');
     const card = node('div', undefined, `stage ${index === current && data.state !== 'finished' ? 'active' : ''} ${index < current || data.state === 'finished' ? 'done' : ''}`);
     card.append(node('span', `0${index + 1}`, 'index'), node('strong', stageNames[name] || name));
-    const returnedCount = relevant.filter(t => t.attempts.some(a => a.returned)).length;
+    const returnedCount = relevant.filter(t => t.attempts.at(-1)?.returned).length;
     const acceptedCount = relevant.filter(t => t.state === 'accepted' && t.acceptance_valid).length;
     card.append(node('small', `返回 ${returnedCount}/${relevant.length} · 验收 ${acceptedCount}/${relevant.length}`));
     stages.append(card);
@@ -30,7 +30,8 @@ function render(data) {
     head.append(node('h3', t.name), node('span', stateNames[t.state] || t.state));
     card.append(head);
     const returnedAttempts = t.attempts.filter(a => a.returned).length;
-    card.append(node('p', `${stageNames[t.stage] || t.stage} · 尝试 ${t.attempts.length} 次，返回 ${returnedAttempts} 次${t.accepted_version ? ` · 验收报告 v${t.accepted_version}` : ''}${t.accepted_version && !t.acceptance_valid ? ' · 报告已变化' : ''}`, 'meta'));
+    const interruptedAttempts = t.attempts.filter(a => a.interrupted).length;
+    card.append(node('p', `${stageNames[t.stage] || t.stage} · 尝试 ${t.attempts.length} 次，返回 ${returnedAttempts} 次${interruptedAttempts ? `，中断 ${interruptedAttempts} 次` : ''}${t.accepted_version ? ` · 验收报告 v${t.accepted_version}` : ''}${t.accepted_version && !t.acceptance_valid ? ' · 报告已变化' : ''}`, 'meta'));
     const links = node('div', undefined, 'reports');
     t.reports.forEach(r => {
       const link = node('a', `报告 v${r.version}${r.valid ? '' : '（原文件已变化）'}`);

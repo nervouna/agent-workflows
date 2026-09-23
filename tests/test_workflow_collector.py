@@ -12,6 +12,8 @@ import pytest
 from codex_maintenance.workflow.collector import (
     HEALTH_NAME,
     INDEX_NAME,
+    MAX_DIAGNOSTIC_BYTES,
+    _diagnose,
     collect_event,
     parse_event,
     register_run,
@@ -131,6 +133,17 @@ def test_read_only_database_failure_is_diagnostic_only(tmp_path: Path, monkeypat
     diagnostics = (data / HEALTH_NAME).read_text()
     assert "run_write_failed" in diagnostics
     assert "readonly database" not in diagnostics
+
+
+def test_diagnostics_rotate_and_keep_new_failures(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    path = data / HEALTH_NAME
+    path.write_text("x" * MAX_DIAGNOSTIC_BYTES)
+    _diagnose(data, "run_write_failed")
+    assert "run_write_failed" in path.read_text()
+    assert (data / f"{HEALTH_NAME}.1").stat().st_size == MAX_DIAGNOSTIC_BYTES
+    assert path.stat().st_size <= MAX_DIAGNOSTIC_BYTES
 
 
 def test_packaged_hook_works_without_checkout(tmp_path: Path) -> None:

@@ -53,7 +53,8 @@ class WorkflowStore:
                 CREATE TABLE IF NOT EXISTS attempts (
                     id TEXT PRIMARY KEY, task_id TEXT NOT NULL REFERENCES tasks(id),
                     number INTEGER NOT NULL, agent_id TEXT, turn_id TEXT,
-                    returned INTEGER NOT NULL DEFAULT 0, observed_start INTEGER NOT NULL DEFAULT 0,
+                    returned INTEGER NOT NULL DEFAULT 0, interrupted INTEGER NOT NULL DEFAULT 0,
+                    observed_start INTEGER NOT NULL DEFAULT 0,
                     observed_stop INTEGER NOT NULL DEFAULT 0, created_at REAL NOT NULL,
                     UNIQUE(task_id, number)
                 );
@@ -74,6 +75,19 @@ class WorkflowStore:
                     ON observations(session_id, agent_id, turn_id, kind);
                 """
             )
+            columns = {row[1] for row in db.execute("PRAGMA table_info(attempts)")}
+            if "interrupted" not in columns:
+                db.execute("BEGIN IMMEDIATE")
+                try:
+                    columns = {row[1] for row in db.execute("PRAGMA table_info(attempts)")}
+                    if "interrupted" not in columns:
+                        db.execute(
+                            "ALTER TABLE attempts ADD COLUMN interrupted INTEGER NOT NULL DEFAULT 0"
+                        )
+                    db.execute("COMMIT")
+                except BaseException:
+                    db.execute("ROLLBACK")
+                    raise
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
@@ -178,8 +192,17 @@ class WorkflowStore:
                 raise WorkflowError("attempt already bound to another turn")
             task = self._required(db, "tasks", attempt["task_id"])
             run = self._required(db, "runs", task["run_id"])
-            if run["state"] != "active":
-                raise WorkflowError("run is not active")
+            latest = db.execute(
+                "SELECT id FROM attempts WHERE task_id=? ORDER BY number DESC LIMIT 1",
+                (task["id"],),
+            ).fetchone()["id"]
+            if (
+                run["state"] != "active"
+                or task["state"] != "running"
+                or attempt["interrupted"]
+                or attempt_id != latest
+            ):
+                raise WorkflowError("only the current running attempt can be bound")
             if turn_id is None and attempt["number"] == 1:
                 starts = db.execute(
                     """SELECT DISTINCT turn_id FROM observations WHERE session_id=? AND agent_id=?
@@ -257,7 +280,8 @@ class WorkflowStore:
                         """SELECT a.id FROM attempts a JOIN tasks t ON t.id=a.task_id
                         JOIN runs r ON r.id=t.run_id
                         WHERE r.session_id=? AND r.state='active' AND a.agent_id=?
-                        AND a.turn_id IS NULL AND a.number=1 AND a.returned=0""",
+                        AND a.turn_id IS NULL AND a.number=1
+                        AND a.returned=0 AND a.interrupted=0 AND t.state='running'""",
                         (session_id, agent_id),
                     ).fetchall()
                     already_bound = db.execute(
@@ -299,8 +323,35 @@ class WorkflowStore:
                 raise WorkflowError("attempt must be bound to an agent before return")
             if attempt["returned"]:
                 return
+            if attempt["interrupted"] or task["state"] != "running":
+                raise WorkflowError("only a running attempt can return")
             db.execute("UPDATE attempts SET returned=1 WHERE id=?", (attempt_id,))
             db.execute("UPDATE tasks SET state='returned' WHERE id=?", (task["id"],))
+
+    def interrupt_attempt(self, attempt_id: str) -> None:
+        """Abandon an unfinished attempt without counting it as returned."""
+        with self._write() as db:
+            attempt = self._required(db, "attempts", attempt_id)
+            task = self._required(db, "tasks", attempt["task_id"])
+            run = self._required(db, "runs", task["run_id"])
+            latest = db.execute(
+                "SELECT id FROM attempts WHERE task_id=? ORDER BY number DESC LIMIT 1",
+                (task["id"],),
+            ).fetchone()["id"]
+            if attempt["interrupted"] and attempt_id == latest and task["state"] == "rework":
+                return
+            if (
+                run["state"] != "active"
+                or run["stage"] != task["stage"]
+                or task["state"] != "running"
+                or attempt_id != latest
+                or attempt["returned"]
+            ):
+                raise WorkflowError("only the current unfinished attempt can be interrupted")
+            db.execute("UPDATE attempts SET interrupted=1 WHERE id=?", (attempt_id,))
+            db.execute(
+                "UPDATE tasks SET state='rework',accepted_version=NULL WHERE id=?", (task["id"],)
+            )
 
     def _submit(self, task_id: str, content: str, path: str | None) -> int:
         if not content.strip():
@@ -550,7 +601,7 @@ class WorkflowStore:
                     )
                 ]
                 for attempt in attempts:
-                    for field in ("returned", "observed_start", "observed_stop"):
+                    for field in ("returned", "interrupted", "observed_start", "observed_stop"):
                         attempt[field] = bool(attempt[field])
                 reports = [
                     dict(row)

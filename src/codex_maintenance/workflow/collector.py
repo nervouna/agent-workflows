@@ -16,6 +16,7 @@ from codex_maintenance.workflow.store import WorkflowStore
 INDEX_NAME = "active-runs.sqlite3"
 HEALTH_NAME = "collector-health.jsonl"
 MAX_EVENT_BYTES = 1024 * 1024
+MAX_DIAGNOSTIC_BYTES = 65536
 
 
 def _index_path(plugin_data: Path) -> Path:
@@ -31,11 +32,12 @@ def _connect(path: Path) -> sqlite3.Connection:
 def _diagnose(plugin_data: Path, code: str) -> None:
     """Keep a small local failure trail without event fields or paths."""
     path = plugin_data / HEALTH_NAME
+    entry = json.dumps({"at": time.time(), "code": code}) + "\n"
     with suppress(OSError):
-        if path.is_file() and path.stat().st_size >= 65536:
-            return
+        if path.is_file() and path.stat().st_size + len(entry.encode()) > MAX_DIAGNOSTIC_BYTES:
+            path.replace(plugin_data / f"{HEALTH_NAME}.1")
         with path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps({"at": time.time(), "code": code}) + "\n")
+            stream.write(entry)
 
 
 def register_run(plugin_data: Path, database: Path, run_id: str) -> None:
