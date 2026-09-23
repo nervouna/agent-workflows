@@ -8,6 +8,7 @@ from codex_maintenance.audit import audit_codex_home
 from codex_maintenance.workflow import WorkflowError, WorkflowStore
 from codex_maintenance.workflow.collector import register_run, unregister_run
 from codex_maintenance.workflow.package import package_plugin
+from codex_maintenance.workflow.server import close, export_report, monitor_url, serve
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -69,6 +70,19 @@ def main(argv: list[str] | None = None) -> int:
     finish.add_argument("--plugin-data", type=Path)
     status = workflow_commands.add_parser("status")
     status.add_argument("run_id")
+    server = workflow_commands.add_parser("serve")
+    server.add_argument("run_id")
+    server.add_argument("--port", type=int, default=0)
+    server.add_argument("--plugin-data", type=Path)
+    closing = workflow_commands.add_parser("close")
+    closing.add_argument("run_id")
+    url = workflow_commands.add_parser("url")
+    url.add_argument("run_id")
+    export = workflow_commands.add_parser("export")
+    export.add_argument("run_id")
+    export.add_argument("task_id")
+    export.add_argument("version", type=int)
+    export.add_argument("output", type=Path)
     observation = workflow_commands.add_parser("observe")
     observation.add_argument("session_id")
     observation.add_argument("kind")
@@ -132,6 +146,14 @@ def _run_workflow(args: argparse.Namespace) -> int:
             unregister_run(args.plugin_data, args.run_id)
     elif action == "status":
         result = store.snapshot(args.run_id)
+    elif action == "serve":
+        serve(args.db, args.run_id, args.port, args.plugin_data)
+    elif action == "close":
+        result = close(args.db, args.run_id)
+    elif action == "url":
+        result = monitor_url(args.db, args.run_id)
+    elif action == "export":
+        export_report(args.db, args.run_id, args.task_id, args.version, args.output)
     elif action == "observe":
         result = store.ingest_observation(args.session_id, args.kind, args.agent_id, args.turn_id)
     if result is not None:
