@@ -6,6 +6,8 @@ from pathlib import Path
 
 from codex_maintenance.audit import audit_codex_home
 from codex_maintenance.workflow import WorkflowError, WorkflowStore
+from codex_maintenance.workflow.collector import register_run, unregister_run
+from codex_maintenance.workflow.package import package_plugin
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,11 +23,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     audit_parser.add_argument("--json", action="store_true", help="write machine-readable JSON")
 
+    package_parser = subparsers.add_parser("package-plugin", help="copy workflow plugin payload")
+    package_parser.add_argument("--output", type=Path, help="new plugin directory")
+
     workflow_parser = subparsers.add_parser("workflow", help="manage a local workflow run")
     workflow_parser.add_argument("--db", type=Path, required=True, help="run SQLite database")
     workflow_commands = workflow_parser.add_subparsers(dest="action", required=True)
     start = workflow_commands.add_parser("start")
     start.add_argument("--session-id", required=True)
+    start.add_argument("--plugin-data", type=Path)
+    register = workflow_commands.add_parser("register")
+    register.add_argument("run_id")
+    register.add_argument("--plugin-data", type=Path, required=True)
+    unregister = workflow_commands.add_parser("unregister")
+    unregister.add_argument("run_id")
+    unregister.add_argument("--plugin-data", type=Path, required=True)
     task = workflow_commands.add_parser("task")
     task.add_argument("run_id")
     task.add_argument("stage")
@@ -54,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     advance.add_argument("run_id")
     finish = workflow_commands.add_parser("finish")
     finish.add_argument("run_id")
+    finish.add_argument("--plugin-data", type=Path)
     status = workflow_commands.add_parser("status")
     status.add_argument("run_id")
     observation = workflow_commands.add_parser("observe")
@@ -70,6 +83,9 @@ def main(argv: list[str] | None = None) -> int:
         else:
             _print_text_report(report)
         return 1 if report["status"] == "fail" else 0
+    if args.command == "package-plugin":
+        print(package_plugin(args.output))
+        return 0
     if args.command == "workflow":
         try:
             return _run_workflow(args)
@@ -84,6 +100,12 @@ def _run_workflow(args: argparse.Namespace) -> int:
     result: object = None
     if action == "start":
         result = store.start_run(args.session_id)
+        if args.plugin_data:
+            register_run(args.plugin_data, args.db, result)
+    elif action == "register":
+        register_run(args.plugin_data, args.db, args.run_id)
+    elif action == "unregister":
+        unregister_run(args.plugin_data, args.run_id)
     elif action == "task":
         result = store.create_task(args.run_id, args.stage, args.name)
     elif action == "attempt":
@@ -106,6 +128,8 @@ def _run_workflow(args: argparse.Namespace) -> int:
         result = store.advance_stage(args.run_id)
     elif action == "finish":
         store.finish_run(args.run_id)
+        if args.plugin_data:
+            unregister_run(args.plugin_data, args.run_id)
     elif action == "status":
         result = store.snapshot(args.run_id)
     elif action == "observe":

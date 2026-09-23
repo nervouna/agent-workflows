@@ -18,8 +18,9 @@ def _id() -> str:
 
 
 class WorkflowStore:
-    def __init__(self, path: Path | str) -> None:
+    def __init__(self, path: Path | str, *, timeout: float = 5) -> None:
         self.path = Path(path)
+        self.timeout = timeout
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connection() as db:
             db.executescript(
@@ -76,10 +77,10 @@ class WorkflowStore:
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+        db = sqlite3.connect(self.path, timeout=self.timeout, isolation_level=None)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys=ON")
-        db.execute("PRAGMA busy_timeout=5000")
+        db.execute(f"PRAGMA busy_timeout={int(self.timeout * 1000)}")
         db.execute("PRAGMA journal_mode=WAL")
         try:
             yield db

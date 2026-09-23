@@ -1,0 +1,15 @@
+{
+  "name": "workflow-monitor",
+  "version": "0.1.0",
+  "description": "Local read-only monitoring for reviewed Codex workflows",
+  "author": {"name": "Damao"},
+  "interface": {
+    "displayName": "Workflow Monitor",
+    "shortDescription": "Follow reviewed workflow progress locally",
+    "longDescription": "Collect minimal lifecycle events for explicitly registered workflow runs.",
+    "developerName": "Damao",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["Monitor my reviewed workflow progress"]
+  }
+}
