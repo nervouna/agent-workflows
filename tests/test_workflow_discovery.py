@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
@@ -7,13 +8,16 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from codex_maintenance.cli import main
-from codex_maintenance.workflow.collector import collect_event
+from codex_maintenance.workflow import collector
+from codex_maintenance.workflow.collector import HEALTH_NAME, collect_event, register_run
 from codex_maintenance.workflow.discovery import (
     STARTUP_DIAGNOSTIC_NAME,
+    PluginDataError,
     _marker,
     discover_plugin_data,
     publish_plugin_data,
@@ -41,10 +45,126 @@ def test_publish_rejects_unsafe_host_data_location(tmp_path: Path) -> None:
     outside.mkdir()
     link = tmp_path / "linked-data"
     link.symlink_to(outside, target_is_directory=True)
-    with pytest.raises(WorkflowError, match="not private"):
+    with pytest.raises(PluginDataError, match="data_path_leaf_symlink"):
         publish_plugin_data(SESSION, link, root=root)
-    with pytest.raises(WorkflowError, match="unavailable"):
+    with pytest.raises(PluginDataError, match="data_path_parent_missing"):
         publish_plugin_data(SESSION, tmp_path / "missing-parent" / "data", root=root)
+    assert not root.exists()
+
+
+def test_host_data_reason_codes_are_specific_and_fixed(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "handoff"
+    leaf = tmp_path / "data"
+    cases = [
+        (Path("relative"), "data_path_not_absolute"),
+        (tmp_path / "missing" / "data", "data_path_parent_missing"),
+    ]
+    for path, reason in cases:
+        with pytest.raises(PluginDataError) as caught:
+            publish_plugin_data(SESSION, path, root=root)
+        assert caught.value.reason == reason
+
+    tmp_path.chmod(0o777)
+    with pytest.raises(PluginDataError) as caught:
+        publish_plugin_data(SESSION, leaf, root=root)
+    assert caught.value.reason == "data_path_parent_permissions"
+    tmp_path.chmod(0o700)
+
+    leaf.write_text("not a directory")
+    with pytest.raises(PluginDataError) as caught:
+        publish_plugin_data(SESSION, leaf, root=root)
+    assert caught.value.reason == "data_path_leaf_type"
+    leaf.unlink()
+    leaf.mkdir(mode=0o777)
+    leaf.chmod(0o777)
+    with pytest.raises(PluginDataError) as caught:
+        publish_plugin_data(SESSION, leaf, root=root)
+    assert caught.value.reason == "data_path_leaf_permissions"
+    leaf.rmdir()
+
+    original_mkdir = Path.mkdir
+
+    def denied_mkdir(path: Path, *args, **kwargs) -> None:
+        if path == leaf:
+            raise PermissionError("sensitive operating-system detail")
+        original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", denied_mkdir)
+    with pytest.raises(PluginDataError) as caught:
+        publish_plugin_data(SESSION, leaf, root=root)
+    assert caught.value.reason == "data_path_leaf_mkdir"
+    assert "sensitive" not in str(caught.value)
+    assert not root.exists()
+
+
+def test_host_data_owner_and_resolve_reasons(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "handoff"
+    leaf = tmp_path / "data"
+    leaf.mkdir()
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "getuid", lambda: -1)
+        with pytest.raises(PluginDataError) as caught:
+            publish_plugin_data(SESSION, leaf, root=root)
+        assert caught.value.reason == "data_path_parent_owner"
+
+    original_lstat = Path.lstat
+
+    def different_owner(path: Path):
+        info = original_lstat(path)
+        if path == leaf:
+            return SimpleNamespace(st_mode=info.st_mode, st_uid=-1)
+        return info
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", different_owner)
+        with pytest.raises(PluginDataError) as caught:
+            publish_plugin_data(SESSION, leaf, root=root)
+        assert caught.value.reason == "data_path_leaf_owner"
+
+    original_resolve = Path.resolve
+
+    def mismatched_resolve(path: Path, *args, **kwargs):
+        if path == leaf:
+            return tmp_path.parent / "other" / leaf.name
+        return original_resolve(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "resolve", mismatched_resolve)
+        with pytest.raises(PluginDataError) as caught:
+            publish_plugin_data(SESSION, leaf, root=root)
+        assert caught.value.reason == "data_path_resolve_mismatch"
+    assert not root.exists()
+
+
+def test_host_data_unavailable_reasons(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "handoff"
+    leaf = tmp_path / "data"
+    original_resolve = Path.resolve
+
+    def denied_parent(path: Path, *args, **kwargs):
+        if path == tmp_path:
+            raise PermissionError("private filesystem error")
+        return original_resolve(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "resolve", denied_parent)
+        with pytest.raises(PluginDataError) as caught:
+            publish_plugin_data(SESSION, leaf, root=root)
+        assert caught.value.reason == "data_path_parent_unavailable"
+        assert "private" not in str(caught.value)
+
+    original_lstat = Path.lstat
+
+    def denied_leaf(path: Path):
+        if path == leaf:
+            raise PermissionError("private filesystem error")
+        return original_lstat(path)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "lstat", denied_leaf)
+        with pytest.raises(PluginDataError) as caught:
+            publish_plugin_data(SESSION, leaf, root=root)
+        assert caught.value.reason == "data_path_leaf_unavailable"
     assert not root.exists()
 
 
@@ -195,7 +315,7 @@ def test_packaged_discovery_reports_missing_env_and_invalid_event_without_output
         (
             {"PLUGIN_DATA": str(tmp_path / "missing-parent" / "data")},
             b'{"hook_event_name":"SessionStart","session_id":"session-12345678","private":"path-secret"}',
-            "data_path_failed",
+            "data_path_parent_missing",
         ),
     ]:
         result = subprocess.run(
@@ -213,3 +333,51 @@ def test_packaged_discovery_reports_missing_env_and_invalid_event_without_output
     assert "prompt-secret" not in health
     assert "command-secret" not in health
     assert "path-secret" not in health
+
+
+def test_rejected_host_data_is_not_collected_or_diagnosed(tmp_path: Path) -> None:
+    payload = package_plugin(tmp_path / "payload")
+    target = tmp_path / "target-data"
+    link = tmp_path / "linked-data"
+    store = WorkflowStore(tmp_path / "run.db")
+    session = f"session-{uuid.uuid4().hex}"
+    run = store.start_run(session)
+    register_run(target, store.path, run)
+    link.symlink_to(target, target_is_directory=True)
+    event = {"hook_event_name": "SessionStart", "session_id": session}
+
+    result = subprocess.run(
+        [sys.executable, str(payload / "hooks" / "discover.py")],
+        input=json.dumps(event).encode(),
+        capture_output=True,
+        env={
+            "PATH": os.environ["PATH"],
+            "PLUGIN_ROOT": str(payload),
+            "PLUGIN_DATA": str(link),
+        },
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == result.stderr == b""
+    assert store.snapshot(run)["observations"] == 0
+    assert not (target / HEALTH_NAME).exists()
+
+
+def test_marker_failure_does_not_access_plugin_data(tmp_path: Path, monkeypatch) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / collector.INDEX_NAME).touch()
+    calls: list[str] = []
+    event = json.dumps({"hook_event_name": "SessionStart", "session_id": SESSION}).encode()
+    monkeypatch.setenv("PLUGIN_DATA", str(data))
+    monkeypatch.setattr(sys, "stdin", SimpleNamespace(buffer=io.BytesIO(event)))
+
+    def marker_failure(*_args, **_kwargs) -> None:
+        raise WorkflowError("private marker detail")
+
+    monkeypatch.setattr(collector, "publish_plugin_data", marker_failure)
+    monkeypatch.setattr(collector, "collect_event", lambda *_args: calls.append("collect"))
+    monkeypatch.setattr(collector, "_diagnose", lambda *_args: calls.append("diagnose"))
+    assert collector.hook_main(discover=True) == 0
+    assert calls == []

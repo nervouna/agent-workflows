@@ -25,6 +25,18 @@ STARTUP_CODES = frozenset(
         "missing_env",
         "invalid_event",
         "data_path_failed",
+        "data_path_not_absolute",
+        "data_path_parent_missing",
+        "data_path_parent_unavailable",
+        "data_path_parent_owner",
+        "data_path_parent_permissions",
+        "data_path_leaf_mkdir",
+        "data_path_leaf_unavailable",
+        "data_path_leaf_symlink",
+        "data_path_leaf_type",
+        "data_path_leaf_owner",
+        "data_path_leaf_permissions",
+        "data_path_resolve_mismatch",
         "marker_failed",
         "marker_published",
     }
@@ -33,6 +45,12 @@ STARTUP_CODES = frozenset(
 
 class PluginDataError(WorkflowError):
     """The host-provided plugin data location could not be prepared."""
+
+    def __init__(self, reason: str) -> None:
+        if reason not in STARTUP_CODES or not reason.startswith("data_path_"):
+            raise ValueError("invalid plugin data failure reason")
+        self.reason = reason
+        super().__init__(reason)
 
 
 def _root() -> Path:
@@ -92,25 +110,49 @@ def record_startup(code: str, *, root: Path | None = None) -> None:
 
 def _prepare_plugin_data(plugin_data: Path) -> Path:
     if not plugin_data.is_absolute():
-        raise PluginDataError("host PLUGIN_DATA is not an absolute directory")
+        raise PluginDataError("data_path_not_absolute")
     try:
         parent = plugin_data.parent.resolve(strict=True)
-        info = parent.stat()
-        if info.st_uid != os.getuid() or info.st_mode & 0o022:
-            raise PluginDataError("host PLUGIN_DATA parent is not private")
-        if not plugin_data.exists():
-            plugin_data.mkdir(mode=0o700)
-        leaf = plugin_data.lstat()
-        if not stat.S_ISDIR(leaf.st_mode) or leaf.st_uid != os.getuid() or leaf.st_mode & 0o022:
-            raise PluginDataError("host PLUGIN_DATA is not private")
-        data = plugin_data.resolve(strict=True)
-        if data.parent != parent:
-            raise PluginDataError("host PLUGIN_DATA is not private")
-        return data
-    except PluginDataError:
-        raise
+    except FileNotFoundError as error:
+        raise PluginDataError("data_path_parent_missing") from error
     except (OSError, RuntimeError, ValueError) as error:
-        raise PluginDataError("host PLUGIN_DATA is unavailable") from error
+        raise PluginDataError("data_path_parent_unavailable") from error
+    try:
+        info = parent.stat()
+    except OSError as error:
+        raise PluginDataError("data_path_parent_unavailable") from error
+    if info.st_uid != os.getuid():
+        raise PluginDataError("data_path_parent_owner")
+    if info.st_mode & 0o022:
+        raise PluginDataError("data_path_parent_permissions")
+    try:
+        leaf = plugin_data.lstat()
+    except FileNotFoundError:
+        try:
+            plugin_data.mkdir(mode=0o700)
+        except OSError as error:
+            raise PluginDataError("data_path_leaf_mkdir") from error
+        try:
+            leaf = plugin_data.lstat()
+        except OSError as error:
+            raise PluginDataError("data_path_leaf_unavailable") from error
+    except OSError as error:
+        raise PluginDataError("data_path_leaf_unavailable") from error
+    if stat.S_ISLNK(leaf.st_mode):
+        raise PluginDataError("data_path_leaf_symlink")
+    if not stat.S_ISDIR(leaf.st_mode):
+        raise PluginDataError("data_path_leaf_type")
+    if leaf.st_uid != os.getuid():
+        raise PluginDataError("data_path_leaf_owner")
+    if leaf.st_mode & 0o022:
+        raise PluginDataError("data_path_leaf_permissions")
+    try:
+        data = plugin_data.resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise PluginDataError("data_path_leaf_unavailable") from error
+    if data.parent != parent:
+        raise PluginDataError("data_path_resolve_mismatch")
+    return data
 
 
 def publish_plugin_data(session_id: str, plugin_data: Path, *, root: Path | None = None) -> None:

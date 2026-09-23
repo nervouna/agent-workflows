@@ -166,13 +166,17 @@ def hook_main(*, discover: bool = False) -> int:
             observation = parse_event(raw)
             if observation is None or observation.kind != "SessionStart":
                 record_startup("invalid_event")
+                return 0
             else:
                 try:
                     publish_plugin_data(observation.session_id, plugin_data)
-                except PluginDataError:
+                except PluginDataError as error:
                     record_startup("data_path_failed")
+                    record_startup(error.reason)
+                    return 0
                 except (OSError, WorkflowError):
                     record_startup("marker_failed")
+                    return 0
                 else:
                     record_startup("marker_published")
         if _index_path(plugin_data).is_file():
@@ -180,5 +184,6 @@ def hook_main(*, discover: bool = False) -> int:
     except Exception:
         if discover:
             record_startup("marker_failed")
-        _diagnose(plugin_data, "collector_failed")
+        else:
+            _diagnose(plugin_data, "collector_failed")
     return 0
