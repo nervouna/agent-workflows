@@ -28,6 +28,9 @@ STARTUP_CODES = frozenset(
         "data_path_not_absolute",
         "data_path_parent_missing",
         "data_path_parent_unavailable",
+        "data_path_parent_symlink",
+        "data_path_parent_type",
+        "data_path_parent_mkdir",
         "data_path_parent_owner",
         "data_path_parent_permissions",
         "data_path_leaf_mkdir",
@@ -111,20 +114,35 @@ def record_startup(code: str, *, root: Path | None = None) -> None:
 def _prepare_plugin_data(plugin_data: Path) -> Path:
     if not plugin_data.is_absolute():
         raise PluginDataError("data_path_not_absolute")
-    try:
-        parent = plugin_data.parent.resolve(strict=True)
-    except FileNotFoundError as error:
-        raise PluginDataError("data_path_parent_missing") from error
-    except (OSError, RuntimeError, ValueError) as error:
-        raise PluginDataError("data_path_parent_unavailable") from error
-    try:
-        info = parent.stat()
-    except OSError as error:
-        raise PluginDataError("data_path_parent_unavailable") from error
-    if info.st_uid != os.getuid():
-        raise PluginDataError("data_path_parent_owner")
-    if info.st_mode & 0o022:
-        raise PluginDataError("data_path_parent_permissions")
+    if not plugin_data.name or ".." in plugin_data.parts:
+        raise PluginDataError("data_path_resolve_mismatch")
+    parent = Path(plugin_data.anchor)
+    parent_info = None
+    for component in (None, *plugin_data.parent.parts[1:]):
+        if component is not None:
+            parent = parent / component
+        try:
+            info = parent.lstat()
+        except FileNotFoundError:
+            if parent_info is None or parent_info.st_uid != os.getuid():
+                raise PluginDataError("data_path_parent_owner") from None
+            try:
+                parent.mkdir(mode=0o700)
+                parent.chmod(0o700)
+                info = parent.lstat()
+            except OSError as error:
+                raise PluginDataError("data_path_parent_mkdir") from error
+        except OSError as error:
+            raise PluginDataError("data_path_parent_unavailable") from error
+        if stat.S_ISLNK(info.st_mode):
+            raise PluginDataError("data_path_parent_symlink")
+        if not stat.S_ISDIR(info.st_mode):
+            raise PluginDataError("data_path_parent_type")
+        if info.st_uid not in (0, os.getuid()):
+            raise PluginDataError("data_path_parent_owner")
+        if info.st_mode & 0o022:
+            raise PluginDataError("data_path_parent_permissions")
+        parent_info = info
     try:
         leaf = plugin_data.lstat()
     except FileNotFoundError:

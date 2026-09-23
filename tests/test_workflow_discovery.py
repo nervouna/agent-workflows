@@ -31,10 +31,12 @@ SESSION = "session-12345678"
 
 
 def test_publish_creates_private_absent_host_data_directory(tmp_path: Path) -> None:
-    data = tmp_path / "plugin-data"
+    data = tmp_path / "new-parent" / "nested" / "plugin-data"
     root = tmp_path / "handoff"
     publish_plugin_data(SESSION, data, root=root)
     assert data.is_dir()
+    assert data.parent.stat().st_mode & 0o777 == 0o700
+    assert data.parent.parent.stat().st_mode & 0o777 == 0o700
     assert data.stat().st_mode & 0o777 == 0o700
     assert discover_plugin_data(SESSION, root=root) == data
 
@@ -47,18 +49,24 @@ def test_publish_rejects_unsafe_host_data_location(tmp_path: Path) -> None:
     link.symlink_to(outside, target_is_directory=True)
     with pytest.raises(PluginDataError, match="data_path_leaf_symlink"):
         publish_plugin_data(SESSION, link, root=root)
-    with pytest.raises(PluginDataError, match="data_path_parent_missing"):
-        publish_plugin_data(SESSION, tmp_path / "missing-parent" / "data", root=root)
+    ancestor = tmp_path / "unsafe-parent"
+    ancestor.mkdir()
+    ancestor.chmod(0o777)
+    with pytest.raises(PluginDataError, match="data_path_parent_permissions"):
+        publish_plugin_data(SESSION, ancestor / "missing" / "data", root=root)
+    assert not (ancestor / "missing").exists()
+    parent_link = tmp_path / "parent-link"
+    parent_link.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(PluginDataError, match="data_path_parent_symlink"):
+        publish_plugin_data(SESSION, parent_link / "missing" / "data", root=root)
+    assert not (outside / "missing").exists()
     assert not root.exists()
 
 
 def test_host_data_reason_codes_are_specific_and_fixed(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "handoff"
     leaf = tmp_path / "data"
-    cases = [
-        (Path("relative"), "data_path_not_absolute"),
-        (tmp_path / "missing" / "data", "data_path_parent_missing"),
-    ]
+    cases = [(Path("relative"), "data_path_not_absolute")]
     for path, reason in cases:
         with pytest.raises(PluginDataError) as caught:
             publish_plugin_data(SESSION, path, root=root)
@@ -139,21 +147,19 @@ def test_host_data_owner_and_resolve_reasons(tmp_path: Path, monkeypatch) -> Non
 def test_host_data_unavailable_reasons(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "handoff"
     leaf = tmp_path / "data"
-    original_resolve = Path.resolve
+    original_lstat = Path.lstat
 
-    def denied_parent(path: Path, *args, **kwargs):
+    def denied_parent(path: Path):
         if path == tmp_path:
             raise PermissionError("private filesystem error")
-        return original_resolve(path, *args, **kwargs)
+        return original_lstat(path)
 
     with monkeypatch.context() as patch:
-        patch.setattr(Path, "resolve", denied_parent)
+        patch.setattr(Path, "lstat", denied_parent)
         with pytest.raises(PluginDataError) as caught:
             publish_plugin_data(SESSION, leaf, root=root)
         assert caught.value.reason == "data_path_parent_unavailable"
         assert "private" not in str(caught.value)
-
-    original_lstat = Path.lstat
 
     def denied_leaf(path: Path):
         if path == leaf:
@@ -165,6 +171,24 @@ def test_host_data_unavailable_reasons(tmp_path: Path, monkeypatch) -> None:
         with pytest.raises(PluginDataError) as caught:
             publish_plugin_data(SESSION, leaf, root=root)
         assert caught.value.reason == "data_path_leaf_unavailable"
+    assert not root.exists()
+
+
+def test_missing_parent_creation_failure_is_fixed_code(tmp_path: Path, monkeypatch) -> None:
+    parent = tmp_path / "new-parent"
+    root = tmp_path / "handoff"
+    original_mkdir = Path.mkdir
+
+    def denied_mkdir(path: Path, *args, **kwargs) -> None:
+        if path == parent:
+            raise PermissionError("private filesystem error")
+        original_mkdir(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "mkdir", denied_mkdir)
+    with pytest.raises(PluginDataError) as caught:
+        publish_plugin_data(SESSION, parent / "data", root=root)
+    assert caught.value.reason == "data_path_parent_mkdir"
+    assert "private" not in str(caught.value)
     assert not root.exists()
 
 
@@ -307,15 +331,18 @@ def test_packaged_discovery_reports_missing_env_and_invalid_event_without_output
     tmp_path: Path,
 ) -> None:
     payload = package_plugin(tmp_path / "payload")
+    unsafe_parent = tmp_path / "unsafe-parent"
+    unsafe_parent.mkdir()
+    unsafe_parent.chmod(0o777)
     root = Path("/private/tmp") / f"codex-workflow-discovery-{os.getuid()}"
     diagnostic = root / STARTUP_DIAGNOSTIC_NAME
     for extra_env, raw, code in [
         ({}, b'{"private":"prompt-secret"}', "missing_env"),
         ({"PLUGIN_DATA": str(tmp_path / "data")}, b'{"private":"command-secret"}', "invalid_event"),
         (
-            {"PLUGIN_DATA": str(tmp_path / "missing-parent" / "data")},
+            {"PLUGIN_DATA": str(tmp_path / "unsafe-parent" / "data")},
             b'{"hook_event_name":"SessionStart","session_id":"session-12345678","private":"path-secret"}',
-            "data_path_parent_missing",
+            "data_path_parent_permissions",
         ),
     ]:
         result = subprocess.run(
