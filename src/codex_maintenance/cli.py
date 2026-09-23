@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from codex_maintenance.audit import audit_codex_home
+from codex_maintenance.workflow import WorkflowError, WorkflowStore
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,6 +21,47 @@ def main(argv: list[str] | None = None) -> int:
     )
     audit_parser.add_argument("--json", action="store_true", help="write machine-readable JSON")
 
+    workflow_parser = subparsers.add_parser("workflow", help="manage a local workflow run")
+    workflow_parser.add_argument("--db", type=Path, required=True, help="run SQLite database")
+    workflow_commands = workflow_parser.add_subparsers(dest="action", required=True)
+    start = workflow_commands.add_parser("start")
+    start.add_argument("--session-id", required=True)
+    task = workflow_commands.add_parser("task")
+    task.add_argument("run_id")
+    task.add_argument("stage")
+    task.add_argument("name")
+    attempt = workflow_commands.add_parser("attempt")
+    attempt.add_argument("task_id")
+    bind = workflow_commands.add_parser("bind")
+    bind.add_argument("attempt_id")
+    bind.add_argument("agent_id")
+    bind.add_argument("--turn-id")
+    returned = workflow_commands.add_parser("returned")
+    returned.add_argument("attempt_id")
+    submit = workflow_commands.add_parser("submit")
+    submit.add_argument("task_id")
+    submit.add_argument("report", type=Path)
+    accept = workflow_commands.add_parser("accept")
+    accept.add_argument("task_id")
+    accept.add_argument("version", type=int)
+    rework = workflow_commands.add_parser("rework")
+    rework.add_argument("task_id")
+    revision = workflow_commands.add_parser("revision")
+    revision.add_argument("review_task_id")
+    revision.add_argument("synthesis_task_id")
+    revision.add_argument("review_version", type=int)
+    advance = workflow_commands.add_parser("advance")
+    advance.add_argument("run_id")
+    finish = workflow_commands.add_parser("finish")
+    finish.add_argument("run_id")
+    status = workflow_commands.add_parser("status")
+    status.add_argument("run_id")
+    observation = workflow_commands.add_parser("observe")
+    observation.add_argument("session_id")
+    observation.add_argument("kind")
+    observation.add_argument("agent_id", nargs="?", default="")
+    observation.add_argument("turn_id", nargs="?", default="")
+
     args = parser.parse_args(argv)
     if args.command == "audit":
         report = audit_codex_home(args.codex_home)
@@ -28,7 +70,49 @@ def main(argv: list[str] | None = None) -> int:
         else:
             _print_text_report(report)
         return 1 if report["status"] == "fail" else 0
+    if args.command == "workflow":
+        try:
+            return _run_workflow(args)
+        except (WorkflowError, OSError, UnicodeError) as error:
+            parser.error(str(error))
     return 2
+
+
+def _run_workflow(args: argparse.Namespace) -> int:
+    store = WorkflowStore(args.db)
+    action = args.action
+    result: object = None
+    if action == "start":
+        result = store.start_run(args.session_id)
+    elif action == "task":
+        result = store.create_task(args.run_id, args.stage, args.name)
+    elif action == "attempt":
+        result = store.begin_attempt(args.task_id)
+    elif action == "bind":
+        store.bind_attempt(args.attempt_id, args.agent_id, args.turn_id)
+    elif action == "returned":
+        store.mark_returned(args.attempt_id)
+    elif action == "submit":
+        result = store.submit_report_file(args.task_id, args.report)
+    elif action == "accept":
+        store.accept_report(args.task_id, args.version)
+    elif action == "rework":
+        store.rework_task(args.task_id)
+    elif action == "revision":
+        result = store.request_revision(
+            args.review_task_id, args.synthesis_task_id, args.review_version
+        )
+    elif action == "advance":
+        result = store.advance_stage(args.run_id)
+    elif action == "finish":
+        store.finish_run(args.run_id)
+    elif action == "status":
+        result = store.snapshot(args.run_id)
+    elif action == "observe":
+        result = store.ingest_observation(args.session_id, args.kind, args.agent_id, args.turn_id)
+    if result is not None:
+        print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
 
 
 def _print_text_report(report: dict[str, object]) -> None:
