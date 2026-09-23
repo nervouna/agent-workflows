@@ -10,6 +10,7 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
+from codex_maintenance.workflow.discovery import publish_plugin_data
 from codex_maintenance.workflow.model import OBSERVATIONS, Observation, WorkflowError
 from codex_maintenance.workflow.store import WorkflowStore
 
@@ -142,14 +143,23 @@ def collect_event(plugin_data: Path, raw: bytes) -> int:
     return written
 
 
-def hook_main() -> int:
+def hook_main(*, discover: bool = False) -> int:
     """Hooks must never block an agent operation or emit control JSON."""
     data = os.environ.get("PLUGIN_DATA") or os.environ.get("CLAUDE_PLUGIN_DATA")
-    if not data or not _index_path(Path(data)).is_file():
+    if not data:
+        return 0
+    plugin_data = Path(data)
+    if not discover and not _index_path(plugin_data).is_file():
         return 0
     # No event input, prompt, command, or tool result may reach hook output.
     try:
-        collect_event(Path(data), sys.stdin.buffer.read(MAX_EVENT_BYTES + 1))
+        raw = sys.stdin.buffer.read(MAX_EVENT_BYTES + 1)
+        if discover:
+            observation = parse_event(raw)
+            if observation is not None and observation.kind == "SessionStart":
+                publish_plugin_data(observation.session_id, plugin_data)
+        if _index_path(plugin_data).is_file():
+            collect_event(plugin_data, raw)
     except Exception:
-        _diagnose(Path(data), "collector_failed")
+        _diagnose(plugin_data, "collector_failed")
     return 0

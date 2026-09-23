@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${PLUGIN_ROOT}/hooks/collect.py\""
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/discover.py\""
           }
         ]
       }

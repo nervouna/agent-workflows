@@ -7,6 +7,7 @@ from pathlib import Path
 from codex_maintenance.audit import audit_codex_home
 from codex_maintenance.workflow import WorkflowError, WorkflowStore
 from codex_maintenance.workflow.collector import register_run, unregister_run
+from codex_maintenance.workflow.discovery import discover_plugin_data
 from codex_maintenance.workflow.package import package_plugin
 from codex_maintenance.workflow.server import close, export_report, monitor_url, serve
 
@@ -28,8 +29,10 @@ def main(argv: list[str] | None = None) -> int:
     package_parser.add_argument("--output", type=Path, help="new plugin directory")
 
     workflow_parser = subparsers.add_parser("workflow", help="manage a local workflow run")
-    workflow_parser.add_argument("--db", type=Path, required=True, help="run SQLite database")
+    workflow_parser.add_argument("--db", type=Path, help="run SQLite database")
     workflow_commands = workflow_parser.add_subparsers(dest="action", required=True)
+    discovery = workflow_commands.add_parser("plugin-data")
+    discovery.add_argument("--session-id", required=True)
     start = workflow_commands.add_parser("start")
     start.add_argument("--session-id", required=True)
     start.add_argument("--plugin-data", type=Path)
@@ -111,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_workflow(args: argparse.Namespace) -> int:
+    if args.action == "plugin-data":
+        print(json.dumps(str(discover_plugin_data(args.session_id))))
+        return 0
+    if args.db is None:
+        raise WorkflowError("--db is required for this workflow command")
     store = WorkflowStore(args.db)
     action = args.action
     result: object = None

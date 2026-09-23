@@ -9,13 +9,16 @@ Use native subagent tools for the work. The plugin records progress and observes
 
 ## Start and monitor
 
-Use the installed plugin's `scripts/workflow.py` with `python3`; it loads its packaged code without the source checkout or `uv`. In commands below, substitute the actual absolute installed `PLUGIN_ROOT`, the host-provided absolute `PLUGIN_DATA`, and an absolute database path in a new run directory under the system temporary directory. Pass paths as command arguments, not through a shell export. Obtain the **current parent** session ID from the actual host context (`CODEX_SESSION_ID` when present); verify it belongs to this task. Do not infer it from the working directory or use `CODEX_THREAD_ID` as a substitute. If no trustworthy parent session ID is available, stop registration and report the block.
+Use the installed plugin's `scripts/workflow.py` with `python3`; it loads its packaged code without the source checkout or `uv`. In commands below, substitute the actual absolute installed `PLUGIN_ROOT` and an absolute database path in a new run directory under the system temporary directory. Pass paths as command arguments, not through a shell export. Obtain the **current parent** session ID from the actual host context (`CODEX_SESSION_ID` when present); verify it belongs to this task. Do not infer it from the working directory or use `CODEX_THREAD_ID` as a substitute. Resolve the host-provided `PLUGIN_DATA` from the trusted SessionStart handoff using the same session ID. If the handoff is missing or stale, stop registration and report the block; a fresh Codex session may be required after plugin trust.
 
 ```text
+python3 <PLUGIN_ROOT>/scripts/workflow.py workflow plugin-data --session-id <PARENT_SESSION_ID>
 python3 <PLUGIN_ROOT>/scripts/workflow.py workflow --db <DB> start --session-id <PARENT_SESSION_ID> --plugin-data <PLUGIN_DATA>
 python3 <PLUGIN_ROOT>/scripts/workflow.py workflow --db <DB> serve <RUN_ID> --plugin-data <PLUGIN_DATA>
 python3 <PLUGIN_ROOT>/scripts/workflow.py workflow --db <DB> url <RUN_ID>
 ```
+
+`plugin-data` prints the verified absolute path as a JSON string. Use that path in subsequent commands; do not guess it from the plugin cache, working directory, or user configuration.
 
 `start` prints the run ID. Keep `serve` running in a background terminal/session and wait for `url` to print a healthy `http://127.0.0.1:<port>` address. Open that address once in the Codex **in-app browser** at workflow start. If no browser control is available, state the missing live UI check; the workflow may continue, but do not claim browser acceptance. Reuse the same DB and run ID for every command. `status <RUN_ID>` reads persisted state, including after a server restart; it does not resume agents. If the server stops, launch `serve` again, check `url`, and inspect actual agent/task state before continuing.
 
