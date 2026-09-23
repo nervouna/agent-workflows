@@ -16,7 +16,23 @@ from pathlib import Path
 from codex_maintenance.workflow.model import WorkflowError
 
 MAX_AGE_SECONDS = 3600
+MAX_STARTUP_DIAGNOSTIC_BYTES = 65536
+STARTUP_DIAGNOSTIC_NAME = "startup-health.jsonl"
 SESSION_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{7,127}\Z")
+STARTUP_CODES = frozenset(
+    {
+        "invoked",
+        "missing_env",
+        "invalid_event",
+        "data_path_failed",
+        "marker_failed",
+        "marker_published",
+    }
+)
+
+
+class PluginDataError(WorkflowError):
+    """The host-provided plugin data location could not be prepared."""
 
 
 def _root() -> Path:
@@ -47,15 +63,61 @@ def _marker(root: Path, session_id: str) -> Path:
     return root / (hashlib.sha256(session_id.encode()).hexdigest() + ".json")
 
 
+def record_startup(code: str, *, root: Path | None = None) -> None:
+    """Best-effort, fixed-code diagnostics outside a possibly absent PLUGIN_DATA."""
+    if code not in STARTUP_CODES:
+        return
+    try:
+        root = _checked_root(_root() if root is None else root, create=True)
+        path = root / STARTUP_DIAGNOSTIC_NAME
+        entry = json.dumps({"at": time.time(), "code": code}) + "\n"
+        if path.exists():
+            info = path.lstat()
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or stat.S_IMODE(info.st_mode) != 0o600
+            ):
+                return
+            if info.st_size + len(entry) > MAX_STARTUP_DIAGNOSTIC_BYTES:
+                path.unlink()
+        flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(path, flags, 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(entry)
+    except (OSError, WorkflowError):
+        return
+
+
+def _prepare_plugin_data(plugin_data: Path) -> Path:
+    if not plugin_data.is_absolute():
+        raise PluginDataError("host PLUGIN_DATA is not an absolute directory")
+    try:
+        parent = plugin_data.parent.resolve(strict=True)
+        info = parent.stat()
+        if info.st_uid != os.getuid() or info.st_mode & 0o022:
+            raise PluginDataError("host PLUGIN_DATA parent is not private")
+        if not plugin_data.exists():
+            plugin_data.mkdir(mode=0o700)
+        leaf = plugin_data.lstat()
+        if not stat.S_ISDIR(leaf.st_mode) or leaf.st_uid != os.getuid() or leaf.st_mode & 0o022:
+            raise PluginDataError("host PLUGIN_DATA is not private")
+        data = plugin_data.resolve(strict=True)
+        if data.parent != parent:
+            raise PluginDataError("host PLUGIN_DATA is not private")
+        return data
+    except PluginDataError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise PluginDataError("host PLUGIN_DATA is unavailable") from error
+
+
 def publish_plugin_data(session_id: str, plugin_data: Path, *, root: Path | None = None) -> None:
     """Publish only the exact session ID and host data path, atomically and privately."""
     root = _root() if root is None else root
     marker = _marker(root, session_id)
-    if not plugin_data.is_absolute() or not plugin_data.is_dir():
-        raise WorkflowError("host PLUGIN_DATA is not an absolute directory")
-    data = plugin_data.resolve(strict=True)
-    if data.stat().st_uid != os.getuid():
-        raise WorkflowError("host PLUGIN_DATA has a different owner")
+    data = _prepare_plugin_data(plugin_data)
     _checked_root(root, create=True)
     descriptor, name = tempfile.mkstemp(prefix=".marker-", dir=root)
     try:

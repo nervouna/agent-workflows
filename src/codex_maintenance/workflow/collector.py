@@ -10,7 +10,11 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
-from codex_maintenance.workflow.discovery import publish_plugin_data
+from codex_maintenance.workflow.discovery import (
+    PluginDataError,
+    publish_plugin_data,
+    record_startup,
+)
 from codex_maintenance.workflow.model import OBSERVATIONS, Observation, WorkflowError
 from codex_maintenance.workflow.store import WorkflowStore
 
@@ -145,8 +149,12 @@ def collect_event(plugin_data: Path, raw: bytes) -> int:
 
 def hook_main(*, discover: bool = False) -> int:
     """Hooks must never block an agent operation or emit control JSON."""
+    if discover:
+        record_startup("invoked")
     data = os.environ.get("PLUGIN_DATA") or os.environ.get("CLAUDE_PLUGIN_DATA")
     if not data:
+        if discover:
+            record_startup("missing_env")
         return 0
     plugin_data = Path(data)
     if not discover and not _index_path(plugin_data).is_file():
@@ -156,10 +164,21 @@ def hook_main(*, discover: bool = False) -> int:
         raw = sys.stdin.buffer.read(MAX_EVENT_BYTES + 1)
         if discover:
             observation = parse_event(raw)
-            if observation is not None and observation.kind == "SessionStart":
-                publish_plugin_data(observation.session_id, plugin_data)
+            if observation is None or observation.kind != "SessionStart":
+                record_startup("invalid_event")
+            else:
+                try:
+                    publish_plugin_data(observation.session_id, plugin_data)
+                except PluginDataError:
+                    record_startup("data_path_failed")
+                except (OSError, WorkflowError):
+                    record_startup("marker_failed")
+                else:
+                    record_startup("marker_published")
         if _index_path(plugin_data).is_file():
             collect_event(plugin_data, raw)
     except Exception:
+        if discover:
+            record_startup("marker_failed")
         _diagnose(plugin_data, "collector_failed")
     return 0
