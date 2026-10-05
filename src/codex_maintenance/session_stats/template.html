@@ -1,0 +1,42 @@
+<div id="ROOT_ID">
+<style>
+#ROOT_ID { color: var(--foreground, #202124); font-family: inherit; container-type: inline-size; }
+#ROOT_ID * { box-sizing: border-box; }
+#ROOT_ID .scope { display: flex; gap: 4px; padding: 4px; margin-bottom: 24px; width: fit-content; border: 1px solid var(--border, #ddd); border-radius: 12px; }
+#ROOT_ID button { font: inherit; font-size: 13px; cursor: pointer; color: inherit; background: transparent; border: 0; border-radius: 8px; padding: 8px 18px; }
+#ROOT_ID button[aria-pressed="true"] { background: var(--foreground, #202124); color: var(--background, #fff); }
+#ROOT_ID button:focus-visible { outline: 2px solid var(--foreground, #202124); outline-offset: 3px; }
+#ROOT_ID .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; gap: 0; }
+#ROOT_ID .metric { min-width: 0; padding: 24px 16px; border-top: 1px solid var(--border, #ddd); }
+#ROOT_ID dt { font-size: 13px; line-height: 1.5; color: var(--muted-foreground, #666); margin-bottom: 12px; }
+#ROOT_ID dd { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+#ROOT_ID .value { font-size: clamp(25px, 4vw, 38px); line-height: 1.15; font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#ROOT_ID .unit { font-size: 12px; color: var(--muted-foreground, #666); }
+@container (max-width: 540px) { #ROOT_ID .metrics { grid-template-columns: minmax(0, 1fr); } #ROOT_ID .metric { padding: 20px 8px; } #ROOT_ID .value { font-size: 25px; } }
+</style>
+<div class="scope" role="group" aria-label="统计范围">
+<button type="button" data-view="combined" aria-pressed="true">合计</button>
+<button type="button" data-view="main" aria-pressed="false">主会话</button>
+<button type="button" data-view="children" aria-pressed="false">子代理</button>
+</div>
+<div aria-live="polite">SECTIONS</div>
+<script>
+(() => {
+  const root = document.getElementById('ROOT_ID');
+  const apply = value => {
+    if (!['main', 'children', 'combined'].includes(value)) value = 'combined';
+    root.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === value)));
+    root.querySelectorAll('[data-scope]').forEach(section => { section.hidden = section.dataset.scope !== value; });
+  };
+  root.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+    apply(button.dataset.view);
+    if (window.openai?.setWidgetState) window.openai.setWidgetState({privateContent: {scope: button.dataset.view}}).catch(() => {});
+  }));
+  apply(window.openai?.widgetState?.privateContent?.scope);
+  window.addEventListener('openai:set_globals', event => {
+    const state = event.detail?.globals?.widgetState;
+    if (state) apply(state.privateContent?.scope);
+  });
+})();
+</script>
+</div>

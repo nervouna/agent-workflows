@@ -1,0 +1,15 @@
+{
+  "name": "session-stats",
+  "version": "0.1.2",
+  "description": "Deterministic local Codex session statistics snapshots",
+  "author": {"name": "Damao"},
+  "interface": {
+    "displayName": "Session Stats",
+    "shortDescription": "查看指定会话的 token、轮数、吞吐与 TTFT 快照",
+    "longDescription": "程序只读采集并计算会话统计，在对话中展示静态快照。",
+    "developerName": "Damao",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "defaultPrompt": ["查看当前会话统计"]
+  }
+}
