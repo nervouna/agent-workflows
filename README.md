@@ -6,7 +6,7 @@ English | [简体中文](README.zh-CN.md)
 ![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<!-- banner -->
+![Agent Workflows](docs/images/banner.jpg)
 
 Reusable workflow skills for AI coding agents, installed with the [Vercel Skills CLI](https://github.com/vercel-labs/skills), and a read-only command that audits a local Codex home (`~/.codex`). The skills are instructions written for Codex; they do not install tools or grant an agent new capabilities.
 
