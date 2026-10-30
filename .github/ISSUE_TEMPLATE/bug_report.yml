@@ -1,0 +1,67 @@
+name: Bug report
+description: A skill or the audit command does not work as described
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not paste secrets, auth files or session content.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: What you did and what went wrong. Include error messages or the agent's output.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The install command or prompt you used, and the steps that lead to the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Part
+      options:
+        - app-icon-design
+        - apple-signing-workflow
+        - keep-calm-and-yolo-on
+        - mcp-secrets-and-local-config
+        - node-npm-workflow
+        - project-memory
+        - python-workflow
+        - review-and-merge-branch
+        - Skill installation
+        - codex-maintenance audit
+        - Docs
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release or commit you installed from.
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and version
+      description: For example Codex CLI 0.159.0.
+  - type: input
+    id: os
+    attributes:
+      label: OS version
+      description: For example macOS 26.1.
+  - type: textarea
+    id: fix
+    attributes:
+      label: Suggested fix
+      description: Optional. If you know where the cause is, say so.
