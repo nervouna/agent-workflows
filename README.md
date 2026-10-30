@@ -14,7 +14,7 @@ Reusable workflow skills for AI coding agents, installed with the [Vercel Skills
 
 This is a personal project: the workflows its author uses with Codex, published so others can install the ones that fit. Several skills assume the author's environment (macOS, mise, uv, Xcode), and each one lists its prerequisites in the [skill catalog](skills/README.md). Installing skills needs Node.js, npm (with `npx`), Git and an agent that supports skills; the audit tool needs Python 3.12 or later and `uv`. No API key or account is needed to install anything here. The documentation is in Chinese and English; the skills themselves are in English.
 
-There are no releases yet. Skills install straight from the repository's `main` branch, and the audit tool runs from a checkout. The maintainer will publish a source-only v0.1.0 release.
+Releases are source only. Skills install straight from the repository's `main` branch, and the audit tool runs from a checkout.
 
 ## How it is built
 
